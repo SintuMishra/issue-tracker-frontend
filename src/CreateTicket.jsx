@@ -1,22 +1,51 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom"; // Import for QR Code params
 
 function CreateTicket({ user }) {
+  // 1. UPDATED STATE: 'block' and 'roomNo' instead of 'location'
   const [form, setForm] = useState({
     title: "",
     description: "",
-    category: "",
-    location: "",
+    category: "Electrical",
+    block: "",       
+    roomNo: "",      
+    assetId: "",
     priority: "MEDIUM",
   });
+
   const [created, setCreated] = useState(null);
   const [myTickets, setMyTickets] = useState([]);
   const [error, setError] = useState("");
+  
+  // URL Params for QR Code (e.g., ?asset=FAN-101&block=A&room=305)
+  const [searchParams] = useSearchParams();
+
+  // 2. AUTO-FILL LOGIC
+  useEffect(() => {
+    const asset = searchParams.get('asset');
+    const room = searchParams.get('room');
+    const block = searchParams.get('block');
+
+    if (asset) {
+      setForm(prev => ({
+        ...prev,
+        assetId: asset,
+        roomNo: room || '',
+        block: block || '',
+        title: `Issue with ${asset}`,
+        description: `Reporting issue for asset: ${asset}`
+      }));
+    }
+  }, [searchParams]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const loadTickets = async () => {
+    // Safety check: if user is null (not logged in), don't fetch
+    if (!user || !user.id) return;
+
     try {
       const res = await fetch(
         `http://localhost:8080/api/tickets/by-user/${user.id}`
@@ -31,21 +60,32 @@ function CreateTicket({ user }) {
 
   useEffect(() => {
     loadTickets();
-  }, []);
+  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setCreated(null);
 
+    // 3. PREPARE PAYLOAD (Force Uppercase & User ID)
+    const payload = {
+      title: form.title,
+      description: form.description,
+      category: form.category,
+      block: form.block,
+      roomNo: form.roomNo,
+      assetId: form.assetId || null,
+      priority: form.priority.toUpperCase(), // Critical Fix for Java Enum
+      createdByUserId: user?.id || 1         // Fallback to ID 1 if persistence fails
+    };
+
+    console.log("Sending Payload:", payload);
+
     try {
       const res = await fetch("http://localhost:8080/api/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          createdByUserId: user.id,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -55,125 +95,150 @@ function CreateTicket({ user }) {
 
       const data = await res.json();
       setCreated(data);
+      
+      // Reset form
       setForm({
         title: "",
         description: "",
-        category: "",
-        location: "",
+        category: "Electrical",
+        block: "",
+        roomNo: "",
+        assetId: "",
         priority: "MEDIUM",
       });
       loadTickets();
+      alert("Ticket Created Successfully!");
+
     } catch (err) {
+      console.error(err);
       setError(err.message);
     }
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit}>
+    <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
+      <h3>Create New Ticket</h3>
+      
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: "15px" }}>
+        
+        {/* Title */}
         <div>
-          <label>Title</label>
+          <label style={{ display: "block", marginBottom: "5px" }}>Title</label>
           <input
             name="title"
             value={form.title}
             onChange={handleChange}
             required
+            style={{ width: "100%", padding: "8px" }}
           />
         </div>
 
+        {/* Description */}
         <div>
-          <label>Description</label>
+          <label style={{ display: "block", marginBottom: "5px" }}>Description</label>
           <textarea
             name="description"
             value={form.description}
             onChange={handleChange}
             required
+            style={{ width: "100%", padding: "8px", minHeight: "80px" }}
           />
         </div>
 
+        {/* Category */}
         <div>
-          <label>Category</label>
-          <input
-            name="category"
-            value={form.category}
+          <label style={{ display: "block", marginBottom: "5px" }}>Category</label>
+          <select 
+            name="category" 
+            value={form.category} 
             onChange={handleChange}
-            required
-          />
+            style={{ width: "100%", padding: "8px" }}
+          >
+            <option value="Electrical">Electrical</option>
+            <option value="Plumbing">Plumbing</option>
+            <option value="Mess">Mess</option>
+            <option value="Internet">Internet</option>
+            <option value="Furniture">Furniture</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
 
-        <div>
-          <label>Location</label>
-          <input
-            name="location"
-            value={form.location}
-            onChange={handleChange}
-            required
-          />
+        {/* BLOCK & ROOM (New Split Fields) */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <div>
+            <label style={{ display: "block", marginBottom: "5px" }}>Block</label>
+            <select
+              name="block"
+              value={form.block}
+              onChange={handleChange}
+              required
+              style={{ width: "100%", padding: "8px" }}
+            >
+              <option value="">Select Block</option>
+              <option value="Block A">Block A</option>
+              <option value="Block B">Block B</option>
+              <option value="Block C">Block C</option>
+              <option value="Girls Hostel">Girls Hostel</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: "5px" }}>Room No</label>
+            <input
+              name="roomNo"
+              placeholder="e.g. 101"
+              value={form.roomNo}
+              onChange={handleChange}
+              required
+              style={{ width: "100%", padding: "8px" }}
+            />
+          </div>
         </div>
 
+        {/* Priority */}
         <div>
-          <label>Priority</label>
+          <label style={{ display: "block", marginBottom: "5px" }}>Priority</label>
           <select
             name="priority"
             value={form.priority}
             onChange={handleChange}
+            style={{ width: "100%", padding: "8px" }}
           >
             <option value="LOW">Low</option>
             <option value="MEDIUM">Medium</option>
             <option value="HIGH">High</option>
-            <option value="CRITICAL">Critical</option>
           </select>
         </div>
 
-        <button type="submit">Create Ticket</button>
+        <button 
+          type="submit" 
+          style={{ padding: "10px", backgroundColor: "#007bff", color: "white", border: "none", cursor: "pointer" }}
+        >
+          Create Ticket
+        </button>
       </form>
 
-      {error && <p style={{ color: "red" }}>Error: {error}</p>}
+      {error && <p style={{ color: "red", marginTop: "10px" }}>Error: {error}</p>}
 
       {created && (
-        <div style={{ marginTop: 20 }}>
-          <h4>Created ticket:</h4>
-          <pre>{JSON.stringify(created, null, 2)}</pre>
+        <div style={{ marginTop: 20, padding: "10px", backgroundColor: "#d4edda", color: "#155724" }}>
+          <strong>Success!</strong> Ticket #{created.id} created.
         </div>
       )}
 
+      {/* Ticket List Display */}
       <div style={{ marginTop: 30 }}>
-        <h4>My Tickets</h4>
+        <h4>My Recent Tickets</h4>
         {myTickets.length === 0 && <p>No tickets yet.</p>}
         {myTickets.map((t) => (
           <div
             key={t.id}
-            style={{ border: "1px solid #ccc", marginBottom: 10, padding: 8 }}
+            style={{ border: "1px solid #ccc", marginBottom: 10, padding: "15px", borderRadius: "5px" }}
           >
-            <strong>{t.title}</strong> ({t.priority}) - {t.status}
-            <div>
-              {t.category} @ {t.location}
+            <strong>{t.title}</strong> - {t.status}
+            <div style={{ fontSize: "0.9em", color: "#555" }}>
+               {t.block} | Room {t.roomNo} | {t.category}
             </div>
-
-            {t.status === "OPEN" && (
-              <button
-                style={{ marginTop: 5 }}
-                onClick={async () => {
-                  try {
-                    const res = await fetch(
-                      `http://localhost:8080/api/tickets/${t.id}/status`,
-                      {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ status: "RESOLVED" }),
-                      }
-                    );
-                    if (!res.ok) throw new Error("Failed to update");
-                    await res.json();
-                    loadTickets();
-                  } catch (err) {
-                    setError(err.message);
-                  }
-                }}
-              >
-                Mark as Resolved
-              </button>
-            )}
           </div>
         ))}
       </div>

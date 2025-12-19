@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom"; // Import for QR Code params
+import { useSearchParams } from "react-router-dom"; 
+// 🚨 IMPORTANT: Import the apiFetch utility you created
+import { apiFetch } from "../api"; 
 
 function CreateTicket({ user }) {
-  // 1. UPDATED STATE: 'block' and 'roomNo' instead of 'location'
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -16,11 +17,9 @@ function CreateTicket({ user }) {
   const [created, setCreated] = useState(null);
   const [myTickets, setMyTickets] = useState([]);
   const [error, setError] = useState("");
-  
-  // URL Params for QR Code (e.g., ?asset=FAN-101&block=A&room=305)
   const [searchParams] = useSearchParams();
 
-  // 2. AUTO-FILL LOGIC
+  // Auto-fill logic for QR Codes
   useEffect(() => {
     const asset = searchParams.get('asset');
     const room = searchParams.get('room');
@@ -42,19 +41,15 @@ function CreateTicket({ user }) {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // 🚨 UPDATED: Uses apiFetch to load tickets from the production server
   const loadTickets = async () => {
-    // Safety check: if user is null (not logged in), don't fetch
     if (!user || !user.id) return;
 
     try {
-      const res = await fetch(
-        `http://localhost:8080/api/tickets/by-user/${user.id}`
-      );
-      if (!res.ok) throw new Error("Failed to load tickets");
-      const data = await res.json();
+      const data = await apiFetch(`/api/tickets/by-user/${user.id}`);
       setMyTickets(data);
     } catch (err) {
-      setError(err.message);
+      setError("Could not load your tickets: " + err.message);
     }
   };
 
@@ -62,12 +57,12 @@ function CreateTicket({ user }) {
     loadTickets();
   }, [user]);
 
+  // 🚨 UPDATED: Uses apiFetch to POST the new ticket
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setCreated(null);
 
-    // 3. PREPARE PAYLOAD (Force Uppercase & User ID)
     const payload = {
       title: form.title,
       description: form.description,
@@ -75,25 +70,19 @@ function CreateTicket({ user }) {
       block: form.block,
       roomNo: form.roomNo,
       assetId: form.assetId || null,
-      priority: form.priority.toUpperCase(), // Critical Fix for Java Enum
-      createdByUserId: user?.id || 1         // Fallback to ID 1 if persistence fails
+      priority: form.priority.toUpperCase(), 
+      createdByUserId: user?.id || 1         
     };
 
-    console.log("Sending Payload:", payload);
+    console.log("Sending Payload to Production:", payload);
 
     try {
-      const res = await fetch("http://localhost:8080/api/tickets", {
+      // apiFetch automatically adds the Authorization header and the BASE_URL
+      const data = await apiFetch("/api/tickets", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Failed to create ticket");
-      }
-
-      const data = await res.json();
       setCreated(data);
       
       // Reset form
@@ -110,17 +99,18 @@ function CreateTicket({ user }) {
       alert("Ticket Created Successfully!");
 
     } catch (err) {
-      console.error(err);
+      console.error("Submission Error:", err);
       setError(err.message);
     }
   };
 
   return (
     <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
-      <h3>Create New Ticket</h3>
+      <header>
+        <h3>Create New Ticket</h3>
+      </header>
       
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: "15px" }}>
-        
         {/* Title */}
         <div>
           <label style={{ display: "block", marginBottom: "5px" }}>Title</label>
@@ -163,7 +153,7 @@ function CreateTicket({ user }) {
           </select>
         </div>
 
-        {/* BLOCK & ROOM (New Split Fields) */}
+        {/* BLOCK & ROOM */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
           <div>
             <label style={{ display: "block", marginBottom: "5px" }}>Block</label>
@@ -226,7 +216,7 @@ function CreateTicket({ user }) {
         </div>
       )}
 
-      {/* Ticket List Display */}
+      {/* Ticket List */}
       <div style={{ marginTop: 30 }}>
         <h4>My Recent Tickets</h4>
         {myTickets.length === 0 && <p>No tickets yet.</p>}

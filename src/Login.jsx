@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import CreateTicket from "./CreateTicket.jsx";
+// 🚨 IMPORT: Use your apiFetch utility
+import { apiFetch } from "./api"; 
 
 function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -19,25 +21,20 @@ function Login() {
     setUser(null);
 
     try {
-      const res = await fetch("http://localhost:8080/api/auth/login", {
+      // 🚨 UPDATED: Use apiFetch instead of hardcoded fetch
+      // apiFetch automatically prepends the Render URL (VITE_API_BASE_URL)
+      const data = await apiFetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Login failed");
-      }
-
-      const data = await res.json();
       console.log("LOGIN SUCCESS", data);
 
-      // save user so other pages (like /admin) can read role
+      // Save user to localStorage (includes token and role)
       localStorage.setItem("user", JSON.stringify(data));
       setUser(data);
 
-      // redirect based on role
+      // Redirect based on role
       if (data.role === "ADMIN") {
         navigate("/admin");
       } else {
@@ -45,7 +42,7 @@ function Login() {
       }
     } catch (err) {
       console.error("LOGIN ERROR", err);
-      setError(err.message || "Something went wrong");
+      setError(err.message || "Invalid credentials. Please try again.");
     }
   };
 
@@ -54,29 +51,33 @@ function Login() {
       <h1>Issue Tracker - Login</h1>
 
       <form onSubmit={handleSubmit}>
-        <div>
-          <label>Email</label>
+        <div style={{ marginBottom: "10px" }}>
+          <label style={{ display: "block" }}>Email</label>
           <input
             name="email"
             type="email"
             value={form.email}
             onChange={handleChange}
             required
+            style={{ width: "100%", padding: "8px" }}
           />
         </div>
 
-        <div>
-          <label>Password</label>
+        <div style={{ marginBottom: "15px" }}>
+          <label style={{ display: "block" }}>Password</label>
           <input
             name="password"
             type="password"
             value={form.password}
             onChange={handleChange}
             required
+            style={{ width: "100%", padding: "8px" }}
           />
         </div>
 
-        <button type="submit">Login</button>
+        <button type="submit" style={{ padding: "10px 20px", cursor: "pointer" }}>
+          Login
+        </button>
       </form>
 
       <p style={{ marginTop: 10 }}>
@@ -87,11 +88,8 @@ function Login() {
 
       {user && (
         <div style={{ marginTop: 20 }}>
-          <h3>Logged in as:</h3>
-          <pre>{JSON.stringify(user, null, 2)}</pre>
-
+          <h3>Logged in as: {user.email}</h3>
           <div style={{ marginTop: 30 }}>
-            <h3>Create Ticket</h3>
             <CreateTicket user={user} />
           </div>
         </div>

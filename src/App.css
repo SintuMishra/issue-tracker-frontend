@@ -284,22 +284,27 @@ table tbody tr:hover { background: #f9fafb; }
   border-color: #fff;
 }
 
-/* Admin Link (Subtle) */
+/* Update this in your App.css */
 .admin-link {
-  font-size: 14px;
-  color: #64748b;
-  text-decoration: none;
-  margin-left: 10px;
-  transition: color 0.2s;
+  display: block;
+  margin-top: 15px;
+  color: #ffffff !important; /* Forces visible white text */
+  font-weight: 600;
+  text-decoration: underline;
+  opacity: 1;
 }
-.admin-link:hover { color: #94a3b8; }
 
-/* --- Feature List (Not buttons) --- */
+.admin-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
 
+/* Feature List spacing tweak */
 .landing-highlights {
   display: flex;
-  flex-direction: column; /* Stack them vertically for a cleaner look */
-  gap: 12px;
+  flex-direction: column; 
+  gap: 15px; /* Increased gap slightly for better breathing room */
+  margin-top: 25px; /* Adds space between the buttons and the features */
 }
 
 .highlight-item {

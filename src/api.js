@@ -1,19 +1,19 @@
-// Use the production URL if the environment variable is set.
-// Otherwise, default to your local development URL.
+// Ensure VITE_API_BASE_URL is set in Vercel to: https://issue-tracker-backend-gcoi.onrender.com
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 export const apiFetch = async (endpoint, options = {}) => {
   // 1. Get User from Storage
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
-  const token = user ? user.token : null;
+  
+  // 🚨 IMPROVED: Check for different common token property names
+  const token = user ? (user.token || user.accessToken || user.jwt) : null;
 
   // 👇 DEBUG LOGS
-  console.log(`[API] Fetching ${BASE_URL}${endpoint}`);
+  console.log(`[API] Target URL: ${BASE_URL}${endpoint}`);
   if (token) {
-    console.log("[API] Attaching Token:", token.substring(0, 10) + "...");
+    console.log("[API] Attaching Token: Bearer " + token.substring(0, 10) + "...");
   } else {
-    // This is expected for /api/auth/register and /api/auth/login
     console.warn("[API] NO TOKEN FOUND! Request will be anonymous.");
   }
 
@@ -33,17 +33,12 @@ export const apiFetch = async (endpoint, options = {}) => {
     headers,
   };
 
-  // 🚨 FIXED: Use the dynamic BASE_URL here
+  // Execute Fetch
   const response = await fetch(`${BASE_URL}${endpoint}`, config);
 
   // 4. Handle Errors
   if (response.status === 401 || response.status === 403) {
-    console.error(`[API] Access Denied (${response.status}). Your token might be invalid or role mismatch.`);
-    // Optionally: force logout if token is expired (401)
-    // if (response.status === 401) {
-    //   localStorage.removeItem("user");
-    //   window.location.href = "/login";
-    // }
+    console.error(`[API] Security Error (${response.status}): Check role or token validity.`);
   }
 
   if (!response.ok) {
@@ -51,5 +46,6 @@ export const apiFetch = async (endpoint, options = {}) => {
     throw new Error(errorData || "API Error");
   }
 
-  return response;
+  // 🚨 UPDATED: Automatically parse JSON for successful requests
+  return response.json();
 };

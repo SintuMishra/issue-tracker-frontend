@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { apiFetch } from "./api"; // ✅ FIX: Centralized API helper
 
 // --- SKELETON LOADER COMPONENT (Visual placeholder while loading) ---
 const TableSkeleton = () => (
@@ -66,15 +67,6 @@ function StudentDashboard() {
     return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleDateString();
   };
 
-  // 2. Security Header Helper (THE CRITICAL FIX)
-  const getAuthHeaders = (user) => {
-    const headers = { "Content-Type": "application/json" };
-    if (user && user.token) {
-      headers["Authorization"] = `Bearer ${user.token}`;
-    }
-    return headers;
-  };
-
   // --- STYLING HELPERS ---
   const getPriorityStyle = (priority) => {
     switch (priority) {
@@ -102,31 +94,20 @@ function StudentDashboard() {
         navigate("/login"); 
         return; 
     }
-    const user = JSON.parse(storedUser);
 
     const loadTickets = async () => {
       try {
         setLoading(true);
         setError("");
         
-        // Fetch tickets using the specific User ID or general endpoint
-        // NOTE: Since we updated the backend to use the Token to find the user, 
-        // using just /api/tickets is safer and cleaner.
-        const res = await fetch(`http://localhost:8080/api/tickets`, {
-            headers: getAuthHeaders(user)
-        });
-        
-        if (!res.ok) {
-            if (res.status === 403) throw new Error("Session expired. Please login again.");
-            throw new Error("Failed to load tickets");
-        }
-        
-        const data = await res.json();
+        // ✅ UPDATED: Now uses apiFetch (automatically handles BASE_URL and Auth Tokens)
+        const data = await apiFetch("/api/tickets");
         setTickets(data);
+
       } catch (err) {
         console.error(err);
         setError(err.message);
-        if (err.message.includes("Session expired")) {
+        if (err.message.includes("Auth Error") || err.message.includes("expired")) {
             localStorage.removeItem("user");
             navigate("/login");
         }
@@ -143,15 +124,13 @@ function StudentDashboard() {
   const handleCreate = async (e) => {
     e.preventDefault();
     setCreateError("");
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) return;
-    const user = JSON.parse(storedUser);
 
     try {
       setCreating(true);
-      const res = await fetch("http://localhost:8080/api/tickets", {
+      
+      // ✅ UPDATED: Now uses apiFetch for POST (removes localhost dependency)
+      const newTicket = await apiFetch("/api/tickets", {
         method: "POST",
-        headers: getAuthHeaders(user), // Attach Token
         body: JSON.stringify({
           title: form.title,
           description: form.description,
@@ -162,9 +141,6 @@ function StudentDashboard() {
         }),
       });
 
-      if (!res.ok) throw new Error(await res.text());
-      
-      const newTicket = await res.json();
       setTickets((prev) => [newTicket, ...prev]);
       setForm({ title: "", description: "", category: "", block: "", roomNo: "", priority: "MEDIUM" });
       toast.success("Ticket created successfully!");

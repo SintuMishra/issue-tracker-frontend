@@ -37,26 +37,29 @@ export const apiFetch = async (endpoint, options = {}) => {
 
   console.log(`[API] Requesting: ${fullUrl}`);
 
+  // src/api.js logic fix
+  // src/api.js
   try {
-    const response = await fetch(fullUrl, config);
+      const response = await fetch(fullUrl, config);
 
-    // Specific handling for Unauthorized/Forbidden
-    if (response.status === 401 || response.status === 403) {
-      console.error(`[API] Auth Error: ${response.status} - Possible expired token.`);
-      // Optional: localStorage.removeItem("user"); window.location.href = "/login";
-    }
+      // READ ONCE: Capture the response as text first
+      const textData = await response.text();
+      let data;
+      try {
+          data = JSON.parse(textData); // Try to parse as JSON
+      } catch (e) {
+          data = textData; // Keep as text if not JSON
+      }
 
-    if (!response.ok) {
-      // Try to parse error JSON, fallback to text
-      const errorData = await response.json().catch(() => null);
-      const errorMessage = errorData?.message || await response.text() || "API Error";
-      throw new Error(errorMessage);
-    }
+      if (!response.ok) {
+          // Now use the already-read 'data'
+          const message = data.message || (typeof data === 'string' ? data : "API Error");
+          throw new Error(message);
+      }
 
-    // Return parsed JSON
-    return await response.json();
+      return data;
   } catch (error) {
-    console.error("[API] Fetch failed:", error.message);
-    throw error;
+      console.error("[API] Fetch failed:", error.message);
+      throw error;
   }
 };

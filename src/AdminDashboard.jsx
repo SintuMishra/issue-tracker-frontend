@@ -161,7 +161,7 @@ function AdminDashboard() {
     if (!selectedTicket) return;
     setActionLoading(true);
     try {
-      await apiFetch(`api/admin/tickets/${selectedTicket.id}/assign`, {
+      await apiFetch(`/api/admin/tickets/${selectedTicket.id}/assign`, {
         method: "PUT",
         body: JSON.stringify({
           // make sure this matches backend field
